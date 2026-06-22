@@ -3,33 +3,171 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ThoughtWarpShorts Automation Tool</title>
+  <title>ThoughtWarpShorts TikTok Upload</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="container">
-    <h1>ThoughtWarpShorts Automation Tool</h1>
-    <p>
-      This application is a personal content management tool used to help upload
-      original short-form videos to authorised social media accounts through
-      official platform APIs.
+    <div class="badge">TikTok Developer Demo</div>
+    <h1>ThoughtWarpShorts TikTok Upload</h1>
+
+    <p class="muted">
+      Website URL:
+      <strong>https://tylerhams.github.io/shorts/</strong>
     </p>
 
-    <p>
-      The app is used by the owner to manage and upload their own created video
-      content. It does not scrape TikTok, automate engagement, or post content
-      for unauthorised users.
-    </p>
+    <section class="card">
+      <h2>1. Connect TikTok</h2>
+      <p>
+        Authorise this app with TikTok Login Kit. This demonstrates
+        <strong>user.info.basic</strong>.
+      </p>
+
+      <button id="connectBtn" class="primary">Connect TikTok</button>
+      <p id="connectionStatus" class="status">Status: Not connected</p>
+    </section>
+
+    <section class="card">
+      <h2>2. Select finished MP4</h2>
+      <p>
+        Choose a finished short-form video created by the app.
+      </p>
+
+      <input id="videoFile" type="file" accept="video/mp4,video/quicktime" />
+      <p id="fileStatus" class="status">No video selected.</p>
+    </section>
+
+    <section class="card">
+      <h2>3. Upload to TikTok Drafts</h2>
+      <p>
+        This step is where the backend calls TikTok's Content Posting API using
+        <strong>video.upload</strong>.
+      </p>
+
+      <button id="uploadBtn" class="secondary">Upload to TikTok Drafts</button>
+      <p id="uploadStatus" class="status">Waiting for connection and MP4 file.</p>
+    </section>
+
+    <section class="notice">
+      <h2>Review notes</h2>
+      <p>
+        This page is the public app interface used for the TikTok Developer review demo.
+        The real upload call must be handled by a backend so API secrets are not exposed
+        in browser JavaScript.
+      </p>
+    </section>
 
     <nav>
       <a href="privacy-policy.html">Privacy Policy</a>
       <a href="terms.html">Terms of Service</a>
     </nav>
-
-    <footer>
-      <p>Contact: hamsyt@googlemail.com</p>
-      <p>Last updated: June 2026</p>
-    </footer>
   </main>
+
+  <script>
+    /*
+      IMPORTANT:
+      1. Replace YOUR_TIKTOK_CLIENT_KEY_HERE with your TikTok Client Key.
+      2. In TikTok Developer Portal, set the redirect URI to:
+         https://tylerhams.github.io/shorts/callback.html
+      3. Keep scopes to:
+         user.info.basic,video.upload
+      4. Do NOT put your Client Secret in this file.
+    */
+
+    const TIKTOK_CLIENT_KEY = "YOUR_TIKTOK_CLIENT_KEY_HERE";
+    const REDIRECT_URI = "https://tylerhams.github.io/shorts/callback.html";
+    const SCOPES = "user.info.basic,video.upload";
+
+    const connectBtn = document.getElementById("connectBtn");
+    const connectionStatus = document.getElementById("connectionStatus");
+    const videoFile = document.getElementById("videoFile");
+    const fileStatus = document.getElementById("fileStatus");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const uploadStatus = document.getElementById("uploadStatus");
+
+    function randomState() {
+      return Math.random().toString(36).substring(2) + Date.now().toString(36);
+    }
+
+    function updateConnectedState() {
+      const codeReceived = localStorage.getItem("tiktok_auth_code_received") === "true";
+      if (codeReceived) {
+        connectionStatus.textContent = "Status: TikTok authorisation code received. Ready for backend token exchange.";
+        connectionStatus.classList.add("success");
+      } else {
+        connectionStatus.textContent = "Status: Not connected";
+        connectionStatus.classList.remove("success");
+      }
+    }
+
+    connectBtn.addEventListener("click", () => {
+      if (!TIKTOK_CLIENT_KEY || TIKTOK_CLIENT_KEY === "YOUR_TIKTOK_CLIENT_KEY_HERE") {
+        alert("Add your TikTok Client Key inside index.html before using the Connect TikTok button.");
+        return;
+      }
+
+      const state = randomState();
+      localStorage.setItem("tiktok_oauth_state", state);
+
+      const authUrl = new URL("https://www.tiktok.com/v2/auth/authorize/");
+      authUrl.searchParams.set("client_key", TIKTOK_CLIENT_KEY);
+      authUrl.searchParams.set("scope", SCOPES);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
+      authUrl.searchParams.set("state", state);
+
+      window.location.href = authUrl.toString();
+    });
+
+    videoFile.addEventListener("change", () => {
+      const file = videoFile.files[0];
+      if (!file) {
+        fileStatus.textContent = "No video selected.";
+        return;
+      }
+
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      fileStatus.textContent = `Selected: ${file.name} (${sizeMB} MB)`;
+      fileStatus.classList.add("success");
+    });
+
+    uploadBtn.addEventListener("click", async () => {
+      const codeReceived = localStorage.getItem("tiktok_auth_code_received") === "true";
+      const file = videoFile.files[0];
+
+      if (!codeReceived) {
+        uploadStatus.textContent = "Please connect TikTok first.";
+        uploadStatus.classList.remove("success");
+        uploadStatus.classList.add("error");
+        return;
+      }
+
+      if (!file) {
+        uploadStatus.textContent = "Please select an MP4 or MOV file first.";
+        uploadStatus.classList.remove("success");
+        uploadStatus.classList.add("error");
+        return;
+      }
+
+      /*
+        This static GitHub Pages file cannot securely upload to TikTok by itself.
+        For a real end-to-end review demo, connect this button to your backend endpoint.
+        Example:
+          const formData = new FormData();
+          formData.append("video", file);
+          const response = await fetch("https://your-backend.example.com/api/tiktok/upload", {
+            method: "POST",
+            body: formData
+          });
+      */
+
+      uploadStatus.textContent =
+        "Video selected and TikTok authorisation received. Backend upload endpoint still needs to be connected before this is a real video.upload demo.";
+      uploadStatus.classList.remove("error");
+      uploadStatus.classList.add("success");
+    });
+
+    updateConnectedState();
+  </script>
 </body>
 </html>

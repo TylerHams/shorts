@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TikTok Authorisation Callback</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="container">
+    <div class="badge">TikTok OAuth Callback</div>
+    <h1>TikTok authorisation received</h1>
+
+    <section class="card">
+      <p id="callbackStatus">Checking TikTok response...</p>
+      <p class="muted">
+        The authorisation code is shown only for demo/testing. In a production app,
+        this code should be sent to your backend and exchanged for an access token securely.
+      </p>
+    </section>
+
+    <a class="button-link" href="index.html">Return to upload page</a>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    const error = params.get("error");
+    const savedState = localStorage.getItem("tiktok_oauth_state");
+    const callbackStatus = document.getElementById("callbackStatus");
+
+    if (error) {
+      callbackStatus.textContent = "TikTok returned an error: " + error;
+      callbackStatus.classList.add("error");
+    } else if (!code) {
+      callbackStatus.textContent = "No authorisation code was found in the callback URL.";
+      callbackStatus.classList.add("error");
+    } else if (savedState && state !== savedState) {
+      callbackStatus.textContent = "Security check failed: OAuth state did not match.";
+      callbackStatus.classList.add("error");
+    } else {
+      localStorage.setItem("tiktok_auth_code_received", "true");
+      callbackStatus.textContent =
+        "Success: TikTok returned an authorisation code. This demonstrates Login Kit / user.info.basic. Return to the upload page to continue.";
+      callbackStatus.classList.add("success");
+    }
+  </script>
+</body>
+</html>
